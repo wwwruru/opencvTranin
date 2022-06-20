@@ -7,23 +7,26 @@
 #include <bits/stdc++.h>
 #include <iostream>
 #include <dirent.h>
-#include <list>
+#include <vector>
 #include <string>
 
 using namespace std;
 
 cv::CascadeClassifier fasecascad;
 
-list<string> picture (string inpath)
+void LoadPictureName (string inpath, vector<vector<string>*> &name)
 {
     DIR *path = opendir(inpath.c_str());
-    list<string> name;
     struct dirent *dir;
     if (path)
     {
+        int i = 0;
         while ((dir = readdir(path)) != NULL)
         {
-            name.push_front(dir->d_name);
+            name[i]->push_back(dir->d_name);
+            i++;
+            if (i == name.size())
+                i = 0;
         }
     }
     else
@@ -31,14 +34,13 @@ list<string> picture (string inpath)
         cout << "faund path"<< endl;
     }
     closedir(path);
-    return name;
 }
 
 
 
-void detectAndSave(string inpath, list<string> namefile, string outpath)
+void DetectAndSave(string inpath, vector<string> *namefile, string outpath)
 {
-    for (string name : namefile)
+    for (string name : *namefile)
     {
         cout << name << endl;
         cv::Mat frame = cv::imread(inpath + "/" + name );
@@ -48,7 +50,7 @@ void detectAndSave(string inpath, list<string> namefile, string outpath)
             cv::cvtColor( frame, frame_gray, cv::COLOR_BGR2GRAY );
             cv::equalizeHist( frame_gray, frame_gray );
 
-            std::vector<cv::Rect> faces;
+            vector<cv::Rect> faces;
             fasecascad.detectMultiScale(frame_gray, faces);
             for ( size_t i = 0; i < faces.size(); i++ )
             {
@@ -71,13 +73,13 @@ int main(int argc, char *argv[])
         return -1;
     };
 
-    list <thread*> th;
+    vector <thread*> th;
 
     string inpath = "/home/kostya/Загрузки/dataset";
     string outpath = "/home/kostya/Загрузки/vivod";
-    int count_thread = 10;
+    int count_thread = 4;
 
-    if(argc!=4) {
+    /*if(argc!=4) {
             cout << "input path"<<"\n";
             cin >> inpath;
             cout << "output path"<<"\n";
@@ -89,31 +91,17 @@ int main(int argc, char *argv[])
             inpath =  argv[1];
             outpath =  argv[2];
             count_thread = atoi(argv[3]);
-        }
+        }*/
 
-    list<string> namefile = picture(inpath);
-    if (namefile.size() > 0){
-        int minsize = namefile.size() / count_thread;
-        for (int i = 0; i < count_thread; i++)
-        {
-            if (i < count_thread - 1){
-                auto it =  namefile.begin();
-                advance(it, minsize * i);
-                auto it2 = namefile.begin();
-                advance(it2, minsize * (i + 1 ) - 1);
-                list<string> namefile2;
-                namefile2.assign(it, it2);
-                th.push_front(new thread (detectAndSave, inpath, namefile2, outpath));
-            }
-            else{
-                auto it =  namefile.begin();
-                advance(it, minsize * i);
-                list<string> namefile2;
-                namefile2.assign(it, namefile.end());
-                th.push_front(new thread (detectAndSave, inpath, namefile2, outpath));
-            }
-        }
-    } else cout << "file miss" << endl;
+    vector<vector<string>*> namefile;
+    for (int i = 0; i < count_thread; i++)
+        namefile.push_back(new vector<string>);
+    LoadPictureName(inpath, namefile);
+
+    for (int i = 0; i < count_thread; i++)
+    {
+        th.push_back(new thread (DetectAndSave, inpath, namefile[i], outpath));
+    }
 
     for (thread* thr: th)
         thr->join();
