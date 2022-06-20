@@ -13,7 +13,7 @@
 
 using namespace std;
 
-cv::CascadeClassifier fasecascad;
+cv::CascadeClassifier facecascad;
 mutex mu;
 bool progress = true;
 struct Pictures
@@ -71,7 +71,7 @@ void DetectAndSave(vector<Pictures> &pictures, string outpath)
             cv::equalizeHist(frame_gray, frame_gray);
 
             vector<cv::Rect> faces;
-            fasecascad.detectMultiScale(frame_gray, faces);
+            facecascad.detectMultiScale(frame_gray, faces);
             for (size_t i = 0; i < faces.size(); i++)
                 {
                     cv::Point center(faces[i].x + faces[i].width/2, faces[i].y + faces[i].height/2);
@@ -88,12 +88,12 @@ void DetectAndSave(vector<Pictures> &pictures, string outpath)
 int main(int argc, char *argv[])
 {
     cv::CommandLineParser parser(argc, argv,
-            "{-i|/home/kostya/Загрузки/dataset| path input }"
-            "{-o|/home/kostya/Загрузки/vivod| path output }"
-            "{-j|4 | number }");
+            "{i|/home/kostya/Загрузки/dataset| path input }"
+            "{o|/home/kostya/Загрузки/vivod| path output }"
+            "{j|1 | number }");
 
     string  face_cascade_name = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_alt2.xml";
-    if( !fasecascad.load(face_cascade_name) )
+    if( !facecascad.load(face_cascade_name) )
     {
         cout << "Error loading face cascade\n";
         return -1;
@@ -101,9 +101,9 @@ int main(int argc, char *argv[])
 
     vector <thread*> th;
 
-    string inpath = parser.get<string> ("-i");
-    string outpath = parser.get<string>("-o");
-    int count_thread = parser.get<int>("-j");
+    string inpath = parser.get<string> ("i");
+    string outpath = parser.get<string>("o");
+    int count_thread = parser.get<int>("j");
 
     th.push_back(new thread (Loadpicture, inpath, ref(pictures), ref(progress)));
 
