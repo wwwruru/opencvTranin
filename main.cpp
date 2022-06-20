@@ -13,26 +13,24 @@
 
 using namespace std;
 
-cv::CascadeClassifier facecascad;
 mutex mu;
-bool progress = true;
+
 struct Pictures
 {
     cv::Mat frame;
     string name;
 };
 
-vector<Pictures>  pictures;
 
-void Loadpicture (string inpath, vector<Pictures> &pictures, bool &progress)
+void Loadpicture (string *inpath, vector<Pictures> &pictures, bool &progress)
 {
-    DIR *path = opendir(inpath.c_str());
+    DIR *path = opendir(inpath->c_str());
     struct dirent *dir;
     if (path)
     {
         while ((dir = readdir(path)) != NULL)
         {
-            cv::Mat frame = cv::imread(inpath + "/" + dir->d_name);
+            cv::Mat frame = cv::imread(*inpath + "/" + dir->d_name);
             if (frame.data)
             {
                 mu.lock();
@@ -51,8 +49,15 @@ void Loadpicture (string inpath, vector<Pictures> &pictures, bool &progress)
 
 
 
-void DetectAndSave(vector<Pictures> &pictures, string outpath)
+void DetectAndSave(vector<Pictures> &pictures, string *outpath, bool &progress)
 {
+    cv::CascadeClassifier facecascade;
+    string  face_cascade_name = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_alt2.xml";
+    if(!facecascade.load(face_cascade_name))
+    {
+        cout << "Error loading face cascade\n";
+    }
+
     while (progress || pictures.size() > 0)
     {
         Pictures pic;
@@ -71,14 +76,14 @@ void DetectAndSave(vector<Pictures> &pictures, string outpath)
             cv::equalizeHist(frame_gray, frame_gray);
 
             vector<cv::Rect> faces;
-            facecascad.detectMultiScale(frame_gray, faces);
+            facecascade.detectMultiScale(frame_gray, faces);
             for (size_t i = 0; i < faces.size(); i++)
                 {
                     cv::Point center(faces[i].x + faces[i].width/2, faces[i].y + faces[i].height/2);
                     cv::ellipse(pic.frame, center, cv::Size(faces[i].width/2, faces[i].height/2),
                                                               0, 0, 360, cv::Scalar(255, 0, 255), 4);
 
-                    cv::imwrite(outpath + "/" + pic.name, pic.frame);
+                    cv::imwrite(*outpath + "/" + pic.name, pic.frame);
                 }
         }
     }
@@ -90,28 +95,24 @@ int main(int argc, char *argv[])
     cv::CommandLineParser parser(argc, argv,
             "{i|/home/kostya/Загрузки/dataset| path input }"
             "{o|/home/kostya/Загрузки/vivod| path output }"
-            "{j|1 | number }");
+            "{j|4 | number }");
 
-    string  face_cascade_name = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_alt2.xml";
-    if( !facecascad.load(face_cascade_name) )
-    {
-        cout << "Error loading face cascade\n";
-        return -1;
-    };
 
+    bool progress = true;
+    vector <Pictures> pictures;
     vector <thread*> th;
 
     string inpath = parser.get<string> ("i");
     string outpath = parser.get<string>("o");
     int count_thread = parser.get<int>("j");
 
-    th.push_back(new thread (Loadpicture, inpath, ref(pictures), ref(progress)));
+    th.push_back(new thread (Loadpicture, &inpath, ref(pictures), ref(progress)));
 
     cout <<  pictures.size() << endl;
 
     for (int i = 0; i < count_thread;i++)
     {
-        th.push_back(new thread (DetectAndSave, ref(pictures), outpath));
+        th.push_back(new thread (DetectAndSave, ref(pictures), &outpath, ref(progress)));
     }
 
     for (thread* thr: th)
