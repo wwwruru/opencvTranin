@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     string outpath = "/home/kostya/Загрузки/vivod";
     int count_thread = 4;
 
-    /*if(argc!=4) {
+    if(argc!=4) {
             cout << "input path"<<"\n";
             cin >> inpath;
             cout << "output path"<<"\n";
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
             inpath =  argv[1];
             outpath =  argv[2];
             count_thread = atoi(argv[3]);
-        }*/
+        }
 
     vector<vector<string>*> namefile;
     for (int i = 0; i < count_thread; i++)
