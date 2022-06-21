@@ -105,13 +105,13 @@ int main(int argc, char *argv[])
     const string outpath = parser.get<string>("o");
     int count_thread = parser.get<int>("j");
 
-    AddThread(new thread (LoadPicture, сref(inpath), ref(pictures), ref(progress)), threads);
+    AddThread(new thread (LoadPicture, cref(inpath), ref(pictures), ref(progress)), threads);
 
     cout <<  pictures.size() << endl;
 
     for (int i = 0; i < count_thread;i++)
     {
-        AddThread(new thread (DetectAndSave, ref(pictures), сref(outpath), ref(progress)), threads);
+        AddThread(new thread (DetectAndSave, ref(pictures), cref(outpath), ref(progress)), threads);
     }
 
     while (threads.size() > 0)
