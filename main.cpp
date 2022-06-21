@@ -2,6 +2,7 @@
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
 #include "opencv2/videoio.hpp"
+
 #include <atomic>
 #include <thread>
 #include <bits/stdc++.h>
@@ -21,7 +22,7 @@ struct Pictures
 };
 
 
-Pictures Get_pictures (vector<Pictures> &pictures)
+Pictures GetPicture (vector<Pictures> &pictures)
 {
     Pictures pic;
     lock_guard<mutex> lg(mu);
@@ -31,12 +32,13 @@ Pictures Get_pictures (vector<Pictures> &pictures)
         pictures.pop_back();
         return pic;
      }
+    return nullopt;
 }
 
 
-void Loadpicture (string *inpath, vector<Pictures> &pictures, atomic<bool> &progress)
+void LoadPicture (string &inpath, vector<Pictures> &pictures, atomic<bool> &progress)
 {
-    string path = *inpath;
+    string path = inpath;
     for (const auto & file : filesystem::directory_iterator(path))
     {
         cv::Mat frame = cv::imread(file.path());
@@ -51,7 +53,7 @@ void Loadpicture (string *inpath, vector<Pictures> &pictures, atomic<bool> &prog
 
 
 
-void DetectAndSave(vector<Pictures> &pictures, string *outpath, atomic<bool> &progress)
+void DetectAndSave(vector<Pictures> &pictures, string &outpath, atomic<bool> &progress)
 {
     cv::CascadeClassifier facecascade;
     string  face_cascade_name = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_alt2.xml";
@@ -59,10 +61,9 @@ void DetectAndSave(vector<Pictures> &pictures, string *outpath, atomic<bool> &pr
     {
         cout << "Error loading face cascade\n";
     }
-
-    while (progress || pictures.size() > 0)
+    else while (progress || pictures.size() > 0)
     {
-        Pictures pic = Get_pictures(pictures);
+        Pictures pic = GetPicture(pictures);
          if (pic.frame.data)
          {
             cout << "number of images : " << pictures.size() << "\tnumber tread : " << this_thread::get_id() << endl;
@@ -78,7 +79,7 @@ void DetectAndSave(vector<Pictures> &pictures, string *outpath, atomic<bool> &pr
                 cv::ellipse(pic.frame, center, cv::Size(faces[i].width/2, faces[i].height/2),
                                                         0, 0, 360, cv::Scalar(255, 0, 255), 4);
 
-                cv::imwrite(*outpath + "/" + pic.name, pic.frame);
+                cv::imwrite(outpath + "/" + pic.name, pic.frame);
             }
         }
     }
@@ -100,16 +101,19 @@ int main(int argc, char *argv[])
     string outpath = parser.get<string>("o");
     int count_thread = parser.get<int>("j");
 
-    th.push_back(new thread (Loadpicture, &inpath, ref(pictures), ref(progress)));
+    th.push_back(new thread (LoadPicture, ref(inpath), ref(pictures), ref(progress)));
 
     cout <<  pictures.size() << endl;
 
     for (int i = 0; i < count_thread;i++)
     {
-        th.push_back(new thread (DetectAndSave, ref(pictures), &outpath, ref(progress)));
+        th.push_back(new thread (DetectAndSave, ref(pictures), ref(outpath), ref(progress)));
     }
 
-    for (thread* thr: th)
-        thr->join();
+    while (th.size() > 0)
+    {
+        th[0]->join();
+        th.erase(th.begin());
+    }
     return 0;
 }
