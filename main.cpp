@@ -2,7 +2,7 @@
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
 #include "opencv2/videoio.hpp"
-
+#include <optional>
 #include <atomic>
 #include <thread>
 #include <bits/stdc++.h>
@@ -22,9 +22,9 @@ struct Pictures
 };
 
 
-Pictures GetPicture (vector<Pictures> &pictures)
+optional<Pictures> GetPicture (vector<Pictures> &pictures)
 {
-    Pictures pic;
+    optional<Pictures> pic;
     lock_guard<mutex> lg(mu);
     if (pictures.size() > 0)
     {
@@ -63,24 +63,24 @@ void DetectAndSave(vector<Pictures> &pictures, string &outpath, atomic<bool> &pr
     }
     else while (progress || pictures.size() > 0)
     {
-        Pictures pic = GetPicture(pictures);
-         if (pic.frame.data)
-         {
-            cout << "number of images : " << pictures.size() << "\tnumber tread : " << this_thread::get_id() << endl;
-            cv::Mat frame_gray;
-            cv::cvtColor(pic.frame, frame_gray, cv::COLOR_BGR2GRAY);
-            cv::equalizeHist(frame_gray, frame_gray);
+        if (optional<Pictures> pic = GetPicture(pictures))
+             if (pic.value().frame.data)
+             {
+                cout << "number of images : " << pictures.size() << "\tnumber tread : " << this_thread::get_id() << endl;
+                cv::Mat frame_gray;
+                cv::cvtColor(pic.value().frame, frame_gray, cv::COLOR_BGR2GRAY);
+                cv::equalizeHist(frame_gray, frame_gray);
 
-            vector<cv::Rect> faces;
-            facecascade.detectMultiScale(frame_gray, faces);
-            for (size_t i = 0; i < faces.size(); i++)
-            {
-                cv::Point center(faces[i].x + faces[i].width/2, faces[i].y + faces[i].height/2);
-                cv::ellipse(pic.frame, center, cv::Size(faces[i].width/2, faces[i].height/2),
-                                                        0, 0, 360, cv::Scalar(255, 0, 255), 4);
+                vector<cv::Rect> faces;
+                facecascade.detectMultiScale(frame_gray, faces);
+                for (size_t i = 0; i < faces.size(); i++)
+                {
+                    cv::Point center(faces[i].x + faces[i].width/2, faces[i].y + faces[i].height/2);
+                    cv::ellipse(pic.value().frame, center, cv::Size(faces[i].width/2, faces[i].height/2),
+                                                            0, 0, 360, cv::Scalar(255, 0, 255), 4);
 
-                cv::imwrite(outpath + "/" + pic.name, pic.frame);
-            }
+                    cv::imwrite(outpath + "/" + pic.value().name, pic.value().frame);
+                }
         }
     }
 }
