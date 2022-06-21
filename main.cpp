@@ -84,9 +84,9 @@ void DetectAndSave(vector<Picture> &pictures,const string &outpath, atomic<bool>
     }
 }
 
-void AddThread(thread* th, vector <shared_ptr<thread>> &treads)
+void AddThread(thread* th, vector <shared_ptr<thread>> &threads)
 {
-    treads.push_back(shared_ptr<thread>(th));
+    threads.push_back(shared_ptr<thread>(th));
 }
 
 int main(int argc, char *argv[])
@@ -99,25 +99,25 @@ int main(int argc, char *argv[])
 
     atomic<bool> progress = true;
     vector <Picture> pictures;
-    vector <shared_ptr<thread>> treads;
+    vector <shared_ptr<thread>> threads;
 
     const string inpath = parser.get<string> ("i");
     const string outpath = parser.get<string>("o");
     int count_thread = parser.get<int>("j");
 
-    AddThread(new thread (LoadPicture, ref(inpath), ref(pictures), ref(progress)), treads);
+    AddThread(new thread (LoadPicture, сref(inpath), ref(pictures), ref(progress)), threads);
 
     cout <<  pictures.size() << endl;
 
     for (int i = 0; i < count_thread;i++)
     {
-        AddThread(new thread (DetectAndSave, ref(pictures), ref(outpath), ref(progress)), treads);
+        AddThread(new thread (DetectAndSave, ref(pictures), сref(outpath), ref(progress)), threads);
     }
 
-    while (treads.size() > 0)
+    while (threads.size() > 0)
     {
-        treads[0]->join();
-        treads.erase(treads.begin());
+        threads[0]->join();
     }
+    threads.clear();
     return 0;
 }
