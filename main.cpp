@@ -15,16 +15,16 @@ using namespace std;
 
 mutex mu;
 
-struct Pictures
+struct Picture
 {
     cv::Mat frame;
     string name;
 };
 
 
-optional<Pictures> GetPicture (vector<Pictures> &pictures)
+optional<Picture> GetPicture (vector<Picture> &pictures)
 {
-    optional<Pictures> pic;
+    optional<Picture> pic;
     lock_guard<mutex> lg(mu);
     if (pictures.size() > 0)
     {
@@ -36,16 +36,15 @@ optional<Pictures> GetPicture (vector<Pictures> &pictures)
 }
 
 
-void LoadPicture (string &inpath, vector<Pictures> &pictures, atomic<bool> &progress)
+void LoadPicture (const string &inpath, vector<Picture> &pictures, atomic<bool> &progress)
 {
-    string path = inpath;
-    for (const auto & file : filesystem::directory_iterator(path))
+    for (const auto & file : filesystem::directory_iterator(inpath))
     {
         cv::Mat frame = cv::imread(file.path());
         if (frame.data)
         {
             lock_guard<mutex> lg(mu);
-            pictures.push_back(Pictures{frame, file.path().filename()});
+            pictures.push_back(Picture{frame, file.path().filename()});
         }
     }
     progress = false;
@@ -53,7 +52,7 @@ void LoadPicture (string &inpath, vector<Pictures> &pictures, atomic<bool> &prog
 
 
 
-void DetectAndSave(vector<Pictures> &pictures, string &outpath, atomic<bool> &progress)
+void DetectAndSave(vector<Picture> &pictures,const string &outpath, atomic<bool> &progress)
 {
     cv::CascadeClassifier facecascade;
     string  face_cascade_name = "/usr/share/opencv4/haarcascades/haarcascade_frontalface_alt2.xml";
@@ -63,7 +62,7 @@ void DetectAndSave(vector<Pictures> &pictures, string &outpath, atomic<bool> &pr
     }
     else while (progress || pictures.size() > 0)
     {
-        if (optional<Pictures> pic = GetPicture(pictures))
+        if (optional<Picture> pic = GetPicture(pictures))
              if (pic.value().frame.data)
              {
                 cout << "number of images : " << pictures.size() << "\tnumber tread : " << this_thread::get_id() << endl;
@@ -85,6 +84,11 @@ void DetectAndSave(vector<Pictures> &pictures, string &outpath, atomic<bool> &pr
     }
 }
 
+void AddThread(thread* th, vector <shared_ptr<thread>> &treads)
+{
+    treads.push_back(shared_ptr<thread>(th));
+}
+
 int main(int argc, char *argv[])
 {
     cv::CommandLineParser parser(argc, argv,
@@ -94,26 +98,26 @@ int main(int argc, char *argv[])
 
 
     atomic<bool> progress = true;
-    vector <Pictures> pictures;
-    vector <thread*> th;
+    vector <Picture> pictures;
+    vector <shared_ptr<thread>> treads;
 
-    string inpath = parser.get<string> ("i");
-    string outpath = parser.get<string>("o");
+    const string inpath = parser.get<string> ("i");
+    const string outpath = parser.get<string>("o");
     int count_thread = parser.get<int>("j");
 
-    th.push_back(new thread (LoadPicture, ref(inpath), ref(pictures), ref(progress)));
+    AddThread(new thread (LoadPicture, ref(inpath), ref(pictures), ref(progress)), treads);
 
     cout <<  pictures.size() << endl;
 
     for (int i = 0; i < count_thread;i++)
     {
-        th.push_back(new thread (DetectAndSave, ref(pictures), ref(outpath), ref(progress)));
+        AddThread(new thread (DetectAndSave, ref(pictures), ref(outpath), ref(progress)), treads);
     }
 
-    while (th.size() > 0)
+    while (treads.size() > 0)
     {
-        th[0]->join();
-        th.erase(th.begin());
+        treads[0]->join();
+        treads.erase(treads.begin());
     }
     return 0;
 }
